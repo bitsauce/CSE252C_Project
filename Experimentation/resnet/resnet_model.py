@@ -356,7 +356,7 @@ class Model(object):
                  kernel_size,
                  conv_stride, first_pool_size, first_pool_stride,
                  block_sizes, block_strides,
-                 final_size, version=DEFAULT_VERSION, data_format=None,
+                 final_size, version=DEFAULT_VERSION, data_format=None, no_dense=False,
                  dtype=DEFAULT_DTYPE):
         """Creates a model for classifying an image.
 
@@ -424,6 +424,7 @@ class Model(object):
         self.first_pool_stride = first_pool_stride
         self.block_sizes = block_sizes
         self.block_strides = block_strides
+        self.no_dense = no_dense
         self.final_size = final_size
         self.dtype = dtype
 
@@ -518,7 +519,7 @@ class Model(object):
                     inputs=inputs, filters=num_filters, bottleneck=self.bottleneck,
                     block_fn=self.block_fn, blocks=num_blocks,
                     strides=self.block_strides[i], training=training,
-                    last=(i==len(self.block_sizes)-1),
+                    last=(i == len(self.block_sizes) - 1) if self.no_dense else False,
                     name='block_layer{}'.format(i + 1), data_format=self.data_format)
 
             inputs = batch_norm(inputs, training, self.data_format)
@@ -529,11 +530,12 @@ class Model(object):
             # ResNet does an Average Pooling layer over pool_size,
             # but that is the same as doing a reduce_mean. We do a reduce_mean
             # here because it performs better than AveragePooling2D.
-            """axes = [2, 3] if self.data_format == 'channels_first' else [1, 2]
-            inputs = tf.reduce_mean(inputs, axes, keepdims=True)
-            inputs = tf.identity(inputs, 'final_reduce_mean')
+            if not self.no_dense:
+              axes = [2, 3] if self.data_format == 'channels_first' else [1, 2]
+              inputs = tf.reduce_mean(inputs, axes, keepdims=True)
+              inputs = tf.identity(inputs, 'final_reduce_mean')
 
-            inputs = tf.reshape(inputs, [-1, self.final_size])
-            inputs = tf.layers.dense(inputs=inputs, units=self.num_classes)
-            inputs = tf.identity(inputs, 'final_dense')"""
+              inputs = tf.reshape(inputs, [-1, self.final_size])
+              inputs = tf.layers.dense(inputs=inputs, units=self.num_classes)
+              inputs = tf.identity(inputs, 'final_dense')
             return inputs
