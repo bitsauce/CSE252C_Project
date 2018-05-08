@@ -1,24 +1,34 @@
 import os
 import numpy as np
 import tensorflow as tf
-from model import MSCocoModel
+from model import ResNetClassifier
 from dataset import load_dataset
-from pycocotools.coco import COCO
+
+def get_log_dir(model_dir):
+    run_idx = 0
+    while True:
+        log_dir = os.path.join(model_dir, "run_{}".format(run_idx))
+        if not os.path.isdir(log_dir):
+            return log_dir
+        run_idx += 1
+
+def add_scalar_summary(name, value):
+    return tf.Summary(value=[tf.Summary.Value(tag=name, simple_value=value),])
 
 # Training parameters
-BATCH_SIZE = 1
-EPOCHS = 100
+BATCH_SIZE = 2
+EPOCHS = 10
 
 # Load MSCoco dataset
 dataset = load_dataset(BATCH_SIZE)
+dataset = dataset.shuffle(buffer_size=1)
 itr = dataset.make_initializable_iterator()
 
 # Initialize network
-model = MSCocoModel(50)
+model = ResNetClassifier(50)
 
 # Feed image and labels through network
 x, y = itr.get_next()
-tf.summary.image("images", x, max_outputs=6)
 logits = model(x, True)
 
 # Calculate loss
@@ -31,30 +41,18 @@ train_op = tf.train.AdamOptimizer(0.001).minimize(loss)
 correct_prediction = tf.equal(tf.argmax(logits, 1), y)
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
-def get_log_dir(model_dir):
-    run_idx = 0
-    while True:
-        log_dir = os.path.join(model_dir, "run_{}".format(run_idx))
-        if not os.path.isdir(log_dir):
-            return log_dir
-        run_idx += 1
-
-log_dir = get_log_dir("logs")
-
-# Session
+# Create session
 sess = tf.Session()
 
-# 
-# merged = tf.summary.merge_all()
-
 # Create file writers
-train_summary = tf.summary.FileWriter(os.path.join(log_dir, "train"), sess.graph)
+train_summary = tf.summary.FileWriter(os.path.join(get_log_dir("logs"), "train"), sess.graph, flush_secs=1)
+
+# Save example image
+tf.summary.image("images", x, max_outputs=6)
+merged = tf.summary.merge_all()
 
 # Initialize models vars
 sess.run(tf.global_variables_initializer())
-
-def add_scalar_summary(name, value):
-    return tf.Summary(value=[tf.Summary.Value(tag=name, simple_value=value),])
 
 # Train loop
 for epoch in range(EPOCHS):
@@ -67,9 +65,10 @@ for epoch in range(EPOCHS):
     n_iter = 0
     total_loss = 0.0
     total_accuracy = 0.0
+    summary = None
     while True:
         try:
-            _, loss_value, acc_value = sess.run([train_op, loss, accuracy])
+            _, loss_value, acc_value, summary = sess.run([train_op, loss, accuracy, merged])
             total_loss += loss_value
             total_accuracy += acc_value
             n_iter += 1
@@ -78,12 +77,11 @@ for epoch in range(EPOCHS):
         except Exception:
             raise
 
+    train_summary.add_summary(summary, epoch)
+
     # Save summary
     train_summary.add_summary(add_scalar_summary("average_loss", total_loss / n_iter), epoch)
     train_summary.add_summary(add_scalar_summary("average_accuracy", total_accuracy / n_iter), epoch)
-
-    #writer.add_summary(summary)
-    #summary = sess.run(merged, feed_dict={ average_loss_ph: total_loss / n_iter, accuracy_ph: total_accuracy / n_iter })
 
 print("Train done")
 

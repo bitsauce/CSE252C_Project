@@ -27,7 +27,7 @@ def create_record(tfrecord_filename):
     writer = tf.python_io.TFRecordWriter(tfrecord_filename)
 
     # Load COCO train data
-    dataDir = "../Data/coco"
+    dataDir = "../data/coco"
     dataType = "train2017"
     annFile = "{}/annotations/instances_{}.json".format(dataDir,dataType)
 
@@ -40,9 +40,11 @@ def create_record(tfrecord_filename):
     label_to_cat = {}
     for label, catId in enumerate(catIds):
         img_meta_data = coco.loadImgs(coco.getImgIds(catIds=[catId]))
-        for meta_data in img_meta_data[:10]:
+        print(len(img_meta_data))
+        for meta_data in img_meta_data:
             img = io.imread(os.path.join(dataDir, dataType, meta_data["file_name"]))
-            img = transform.resize(img, (224, 224))#(480, 640))
+            img = transform.resize(img, (224, 224))
+            #img = transform.resize(img, (480, 640))
             img = img.astype(np.float32)
             feature = {
                 "image_raw": bytes_feature(img.tostring()),

@@ -100,5 +100,12 @@ ENV/
 # mypy
 .mypy_cache/
 
-Data/
-!Data/README
+data/
+!data/README
+
+# tensorflow
+checkpoint
+*.pbtxt
+*.ckpt*
+*.tfevents*
+*.tfrecord
