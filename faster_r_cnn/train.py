@@ -7,7 +7,7 @@ from utils import get_log_dir, add_scalar_summary
 
 import resnet_run_loop
 
-class TinyImageNetTrainer:
+class FasterRCNNTrainer:
     def __init__(self):
         # Initialize network
         #self.model = ResNetClassifier(resnet_size=50, num_classes=10)
@@ -16,7 +16,7 @@ class TinyImageNetTrainer:
     def model_fn(self, weight_decay=1e-4, momentum=0.9, loss_filter_fn=None, learning_rate_fn=None, dtype=tf.float32):
         def func(features, labels, mode):
             # Generate a summary node for the images
-            tf.summary.image('images', features, max_outputs=6)
+            tf.summary.image("images", features, max_outputs=6)
 
             features = tf.cast(features, dtype)
 
@@ -29,8 +29,8 @@ class TinyImageNetTrainer:
             logits = tf.cast(logits, tf.float32)
 
             predictions = {
-                'classes': tf.argmax(logits, axis=1),
-                'probabilities': tf.nn.softmax(logits, name='softmax_tensor')
+                "classes": tf.argmax(logits, axis=1),
+                "probabilities": tf.nn.softmax(logits, name="softmax_tensor")
             }
 
             if mode == tf.estimator.ModeKeys.PREDICT:
@@ -39,7 +39,7 @@ class TinyImageNetTrainer:
                     mode=mode,
                     predictions=predictions,
                     export_outputs={
-                        'predict': tf.estimator.export.PredictOutput(predictions)
+                        "predict": tf.estimator.export.PredictOutput(predictions)
                     })
 
             # Calculate loss, which includes softmax cross entropy and L2 regularization.
@@ -47,13 +47,13 @@ class TinyImageNetTrainer:
                 logits=logits, onehot_labels=labels)
 
             # Create a tensor named cross_entropy for logging purposes.
-            tf.identity(cross_entropy, name='cross_entropy')
-            tf.summary.scalar('cross_entropy', cross_entropy)
+            tf.identity(cross_entropy, name="cross_entropy")
+            tf.summary.scalar("cross_entropy", cross_entropy)
 
             # If no loss_filter_fn is passed, assume we want the default behavior,
             # which is that batch_normalization variables are excluded from loss.
             def exclude_batch_norm(name):
-                return 'batch_normalization' not in name
+                return "batch_normalization" not in name
             nonlocal loss_filter_fn
             loss_filter_fn = loss_filter_fn or exclude_batch_norm
 
@@ -62,7 +62,7 @@ class TinyImageNetTrainer:
                 # loss is computed using fp32 for numerical stability.
                 [tf.nn.l2_loss(tf.cast(v, tf.float32)) for v in tf.trainable_variables()
                 if loss_filter_fn(v.name)])
-            tf.summary.scalar('l2_loss', l2_loss)
+            tf.summary.scalar("l2_loss", l2_loss)
             loss = cross_entropy + l2_loss
 
             if mode == tf.estimator.ModeKeys.TRAIN:
@@ -71,19 +71,14 @@ class TinyImageNetTrainer:
                 learning_rate = learning_rate_fn(global_step)
 
                 # Create a tensor named learning_rate for logging purposes
-                tf.identity(learning_rate, name='learning_rate')
-                tf.summary.scalar('learning_rate', learning_rate)
+                tf.identity(learning_rate, name="learning_rate")
+                tf.summary.scalar("learning_rate", learning_rate)
 
                 optimizer = tf.train.AdamOptimizer(
                     learning_rate=learning_rate#,
                     #momentum=momentum
                 )
                 
-                #optimizer = tf.train.MomentumOptimizer(
-                #    learning_rate=learning_rate,
-                #    momentum=momentum
-                #)
-
                 loss_scale = 1
                 if loss_scale != 1:
                     # When computing fp16 gradients, often intermediate tensor values are
@@ -106,17 +101,17 @@ class TinyImageNetTrainer:
 
             if not tf.contrib.distribute.has_distribution_strategy():
                 accuracy = tf.metrics.accuracy(
-                    tf.argmax(labels, axis=1), predictions['classes'])
+                    tf.argmax(labels, axis=1), predictions["classes"])
             else:
                 # Metrics are currently not compatible with distribution strategies during
                 # training. This does not affect the overall performance of the model.
                 accuracy = (tf.no_op(), tf.constant(0))
 
-            metrics = {'accuracy': accuracy}
+            metrics = {"accuracy": accuracy}
 
             # Create a tensor named train_accuracy for logging purposes
-            tf.identity(accuracy[1], name='train_accuracy')
-            tf.summary.scalar('train_accuracy', accuracy[1])
+            tf.identity(accuracy[1], name="train_accuracy")
+            tf.summary.scalar("train_accuracy", accuracy[1])
 
             return tf.estimator.EstimatorSpec(
                 mode=mode,
@@ -179,10 +174,6 @@ class TinyImageNetTrainer:
             num_images=train_data_size, boundary_epochs=[30, 60, 80, 90],
             decay_rates=[1, 0.1, 0.01, 0.001, 1e-4])
 
-
-        # Save model every epoch
-        config = None#tf.estimator.RunConfig(save_checkpoints_steps=int(train_data_size / batch_size))
-
         warm_start = None
         if checkpoint_dir != None:
             # Load pre-trained model for all variables except resnet_model/dense*
@@ -225,5 +216,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Train
-    trainer = TinyImageNetTrainer()
+    trainer = FasterRCNNTrainer()
     trainer.train(args.num_epochs, args.batch_size, args.checkpoint_dir)

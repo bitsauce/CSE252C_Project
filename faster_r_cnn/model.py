@@ -34,7 +34,7 @@ def get_block_sizes(resnet_size):
                resnet_size, choices.keys()))
     raise ValueError(err)
 
-class ResNetClassifier(resnet.Model):
+class FasterRCNNModel(resnet.Model):
     def __init__(self, resnet_size, num_classes, data_format=None,
                  resnet_version=resnet.DEFAULT_VERSION,
                  dtype=resnet.DEFAULT_DTYPE):
@@ -59,7 +59,7 @@ class ResNetClassifier(resnet.Model):
         else:
             bottleneck = True
 
-        super(ResNetClassifier, self).__init__(
+        super(FasterRCNNModel, self).__init__(
             resnet_size=resnet_size,
             bottleneck=bottleneck,
             num_classes=num_classes,
@@ -82,9 +82,16 @@ class ResNetClassifier(resnet.Model):
             self.final_size = 2048
 
     def __call__(self, inputs, training):
-        inputs = super(ResNetClassifier, self).__call__(inputs, training)
+        inputs = super(FasterRCNNModel, self).__call__(inputs, training)
 
-        with self._model_variable_scope():
+        # TODO: Append RPN network here
+
+        with tf.VariableScope("RPN"):
+            pass
+
+        # TODO: For the top N regions, do RoIPool and classify RoI
+
+        """with self._model_variable_scope():
             # The current top layer has shape
             # `batch_size x pool_size x pool_size x final_size`.
             # ResNet does an Average Pooling layer over pool_size,
@@ -96,7 +103,7 @@ class ResNetClassifier(resnet.Model):
 
             inputs = tf.reshape(inputs, [-1, self.final_size])
             inputs = tf.layers.dense(inputs=inputs, units=self.num_classes)
-            inputs = tf.identity(inputs, 'final_dense')
+            inputs = tf.identity(inputs, 'final_dense')"""
 
         return inputs
 
