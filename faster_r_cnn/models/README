@@ -1,0 +1,1 @@
+Download [a pre-trained ResNet50](http://download.tensorflow.org/models/official/resnet_v2_imagenet_checkpoint.tar.gz) checkpoint and extract to *resnet_v2_imagenet_checkpoint/*

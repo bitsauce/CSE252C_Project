@@ -2,6 +2,7 @@
 
 TODO:
 - Faster R-CNN
+    - Dataset [x]. NOTE: Should probably store the data as encoded jpegs + split data into smaller .tfrecords
     - Network
         - ResNet50 backbone [x]
         - Anchors
